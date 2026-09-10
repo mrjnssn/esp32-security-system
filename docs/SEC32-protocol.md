@@ -34,9 +34,9 @@ Version 0.1
 
 **Nodes:**
 
-- SENSOR
-- CONTROLLER
-- CAMERA
+- SENSOR: detects security related events
+- CONTROLLER: central node responsible for coordiating the security system.
+- CAMERA: handles image capture requests
 
 
 A SENSOR initiates a connection. 
@@ -143,9 +143,25 @@ The 'source' and 'destination' header fields contain an unsigned 8-bit node ID. 
 
 ![Connection state of sensor node](../images/Connection_state_sensor_node.png)
 
+Transition table:
+
+| Current state | Event | Action | New state |
+|---------------|-------|--------|-----------|
+| DISCONNECTED | Connection start requested | Send SYN | SYN_SENT |
+| SYN_SENT | Receive valid SYN_ACK | Send ACK | CONNECTED
+| CONNECTED | Disconnect requested | Send FIN | FIN_SENT |
+| FIN_SENT | Redeive valid FIN_ACK | Close session | DISCONNECTED |
 
 **Controller node**
 
+Transition table:
+
+| Current state | Event | Action | New state |
+|---------------|-------|--------|-----------|
+| DISCONNECTED | Receive valid SYN | Send SYN_ACK | SYN_RECEIVED |
+| SYN_RECEIVED | Receive valid ACK | Accept session | CONNECTED |
+| CONNECTED | Receive valid FIN | Send FIN_ACK | FIN_RECEIVED |
+| FIN_RECEIVED | FIN_ACK sent | Close session | DISCONNECTED |
 
 **Camera node**
 
