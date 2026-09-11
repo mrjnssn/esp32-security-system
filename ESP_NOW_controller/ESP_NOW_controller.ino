@@ -4,6 +4,7 @@
 
 #define WIFI_CHANNEL 6
 
+
 void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
   PacketHeader receivedHeader; 
 
@@ -37,9 +38,45 @@ void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int le
   Serial.print("payloadLength: ");
   Serial.println(receivedHeader.payloadLength);
 
+  // add source as peer
+
+  if (!esp_now_is_peer_exist(info->src_addr)) {
+
+    esp_now_peer_info_t peerInfo = {}; // initialize peerInfo struct
+
+    memcpy(peerInfo.peer_addr, info->src_addr, 6);
+    peerInfo.channel = WIFI_CHANNEL;
+    peerInfo.encrypt = false;
+
+      if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+        Serial.println("Failed to add peer");
+        return;
+      }
+  }
+
+  PacketHeader synAckHeader;
+
+  synAckHeader.version = PROTOCOL_VERSION;
+  synAckHeader.source = NODE_CONTROLLER;
+  synAckHeader.destination = receivedHeader.source;
+  synAckHeader.type = MSG_SYN_ACK;
+  synAckHeader.sequence = receivedHeader.sequence;
+  synAckHeader.payloadLength = 0;
+
+  uint8_t responseBuffer[HEADER_SIZE];
+
+  serializeHeader(synAckHeader, responseBuffer);
+
+  esp_now_send(
+    info->src_addr,
+    responseBuffer,
+    HEADER_SIZE
+  );
+
 }
 
 void setup() {
+
   Serial.begin(115200);
   
   WiFi.mode(WIFI_STA); // stattion mode
