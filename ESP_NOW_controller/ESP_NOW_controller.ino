@@ -4,6 +4,12 @@
 
 #define WIFI_CHANNEL 6
 
+enum connectionState {
+  DISCONNECTED,
+  SYN_RECEIVED,
+  CONNECTED,
+  FIN_RECEIVED,
+};
 
 void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
   PacketHeader receivedHeader; 

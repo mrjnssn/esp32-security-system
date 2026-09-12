@@ -16,13 +16,71 @@ enum connectionState {
 PacketHeader synHeader;
 
 uint8_t buffer[HEADER_SIZE];
+uint16_t currentSequence = 42;
+
+void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+  PacketHeader receivedHeader; 
+
+  if (len < HEADER_SIZE) {
+    return;
+  }
+
+  deserializeHeader(data, receivedHeader);
+
+  if (receivedHeader.version != PROTOCOL_VERSION) {
+    return;
+  }
+
+  if (receivedHeader.destination != NODE_SENSOR) {
+    return;
+  }
+
+  if (receivedHeader.type != MSG_SYN_ACK) {
+    return;
+  }
+
+  if (receivedHeader.sequence != currentSequence) {
+    return;
+  }
+  
+  Serial.println("Valid SEC32 SYN_ACK received");
+  Serial.print("version: ");
+  Serial.println(receivedHeader.version);
+  Serial.print("source: ");
+  Serial.println(receivedHeader.source);
+  Serial.print("destination: ");
+  Serial.println(receivedHeader.destination);
+  Serial.print("sequence: ");
+  Serial.println(receivedHeader.sequence);
+  Serial.print("payloadLength: ");
+  Serial.println(receivedHeader.payloadLength);
+
+  PacketHeader ackHeader;
+
+  ackHeader.version = PROTOCOL_VERSION;
+  ackHeader.source = NODE_SENSOR;
+  ackHeader.destination = receivedHeader.source;
+  ackHeader.type = MSG_ACK;
+  ackHeader.sequence = receivedHeader.sequence;
+  ackHeader.payloadLength = 0;
+
+  uint8_t responseBuffer[HEADER_SIZE];
+
+  serializeHeader(ackHeader, responseBuffer);
+
+  esp_now_send(
+    info->src_addr,
+    responseBuffer,
+    HEADER_SIZE
+  );
+}
 
 void setup() {
   synHeader.version = PROTOCOL_VERSION;
   synHeader.source = NODE_SENSOR_1;
   synHeader.destination = NODE_CONTROLLER;
   synHeader.type = MSG_SYN;
-  synHeader.sequence = 42;
+  synHeader.sequence = currentSequence;
   synHeader.payloadLength = 0;
 
   Serial.begin(115200);
