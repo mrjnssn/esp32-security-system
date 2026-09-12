@@ -41,7 +41,7 @@ void serializeHeader(const PacketHeader& header, uint8_t* buffer) {
   buffer[6] = header.payloadLength;
 };
 
-void deserializeHeader(uint8_t* buffer, PacketHeader& header) {
+void deserializeHeader(const uint8_t* buffer, PacketHeader& header) {
   header.version = buffer[0];
   header.source = buffer[1];
   header.destination = buffer[2];

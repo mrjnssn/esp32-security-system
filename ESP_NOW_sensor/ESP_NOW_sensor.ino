@@ -31,7 +31,7 @@ void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int le
     return;
   }
 
-  if (receivedHeader.destination != NODE_SENSOR) {
+  if (receivedHeader.destination != NODE_SENSOR_1) {
     return;
   }
 
@@ -58,7 +58,7 @@ void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int le
   PacketHeader ackHeader;
 
   ackHeader.version = PROTOCOL_VERSION;
-  ackHeader.source = NODE_SENSOR;
+  ackHeader.source = NODE_SENSOR_1;
   ackHeader.destination = receivedHeader.source;
   ackHeader.type = MSG_ACK;
   ackHeader.sequence = receivedHeader.sequence;
@@ -105,6 +105,8 @@ void setup() {
   }
 
   Serial.println("ESP-NOW ready");
+
+  esp_now_register_recv_cb(onDataReceived);
 
 }
 
