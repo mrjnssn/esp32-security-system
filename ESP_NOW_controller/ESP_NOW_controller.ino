@@ -106,6 +106,7 @@ void handleSyn(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
 
   // update state machine
   connectionState = SYN_RECEIVED;
+  println("Controller: SYN received.");
 }
 
 void handleAck(const esp_now_recv_info_t *info, const PacketHeader& receivedHeader) {
@@ -119,6 +120,7 @@ void handleAck(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
 
   // update state machine
   connectionState = CONNECTED;
+  println("Controller: connection established.");
 }
 
 void handleFin(const esp_now_recv_info_t *info, const PacketHeader& receivedHeader) {
@@ -154,7 +156,7 @@ void handleFin(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
   // update state machine
   connectionState = DISCONNECTED;
 
-  println("")
+  println("Controller: disconnected.");
 }
 
 void printConfirmation(const PacketHeader& receivedHeader) {

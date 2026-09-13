@@ -6,15 +6,14 @@
 
 uint8_t controllerMac[] = {0x5C, 0x01, 0x3B, 0xBF, 0x87, 0x78};
 
-enum connectionState {
+enum ConnectionState {
   DISCONNECTED,
   SYN_SENT,
   CONNECTED,
   FIN_SENT,
 };
 
-PacketHeader synHeader;
-
+ConnectionState connectionState = DISCONNECTED;
 uint8_t buffer[HEADER_SIZE];
 uint16_t currentSequence = 42;
 
@@ -35,25 +34,42 @@ void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int le
     return;
   }
 
+  switch (receivedHeader.type) {
+    case MSG_SYN_ACK:
+      if (connectionState != SYN_SENT) {
+        return;
+      }
+      
+      handleSynAck(info, receivedHeader);
+
+      break;
+
+    case MSG_FIN_ACK:
+      if (connectionState != CONNECTED) {
+        return;
+      }   
+
+      // TODO: handleFinAck(info, receivedHeader);
+
+      connectionState = DISCONNECTED;
+      println("Sensor: disconnected.");
+
+      break;
+  }
+
   if (receivedHeader.type != MSG_SYN_ACK) {
     return;
   }
 
+
+}
+
+void handleSynAck(const esp_now_recv_info_t *info, const PacketHeader& receivedHeader) {
   if (receivedHeader.sequence != currentSequence) {
     return;
   }
-  
-  Serial.println("Valid SEC32 SYN_ACK received");
-  Serial.print("version: ");
-  Serial.println(receivedHeader.version);
-  Serial.print("source: ");
-  Serial.println(receivedHeader.source);
-  Serial.print("destination: ");
-  Serial.println(receivedHeader.destination);
-  Serial.print("sequence: ");
-  Serial.println(receivedHeader.sequence);
-  Serial.print("payloadLength: ");
-  Serial.println(receivedHeader.payloadLength);
+
+  printConfirmation(receivedHeader);
 
   PacketHeader ackHeader;
 
@@ -73,15 +89,29 @@ void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int le
     responseBuffer,
     HEADER_SIZE
   );
+
+  connectionState = CONNECTED;
+  println("Sensor: connection established.");
+
+}
+
+void printConfirmation(const PacketHeader& receivedHeader) {
+  Serial.print("Valid SEC32 ");
+  Serial.print(receivedHeader.type);
+  Serial.println(" received");
+  Serial.print("version: ");
+  Serial.println(receivedHeader.version);
+  Serial.print("source: ");
+  Serial.println(receivedHeader.source);
+  Serial.print("destination: ");
+  Serial.println(receivedHeader.destination);
+  Serial.print("sequence: ");
+  Serial.println(receivedHeader.sequence);
+  Serial.print("payloadLength: ");
+  Serial.println(receivedHeader.payloadLength);
 }
 
 void setup() {
-  synHeader.version = PROTOCOL_VERSION;
-  synHeader.source = NODE_SENSOR_1;
-  synHeader.destination = NODE_CONTROLLER;
-  synHeader.type = MSG_SYN;
-  synHeader.sequence = currentSequence;
-  synHeader.payloadLength = 0;
 
   Serial.begin(115200);
 
@@ -112,18 +142,34 @@ void setup() {
 
 void loop() {
 
-  serializeHeader(synHeader, buffer);
+  if (connectionState == DISCONNECTIED) {
+    // create MSG_SYN
+    PacketHeader synHeader;
 
-  esp_err_t message = esp_now_send(
-    controllerMac,
-    buffer,
-    HEADER_SIZE
-  );
+    synHeader.version = PROTOCOL_VERSION;
+    synHeader.source = NODE_SENSOR_1;
+    synHeader.destination = NODE_CONTROLLER;
+    synHeader.type = MSG_SYN;
+    synHeader.sequence = currentSequence;
+    synHeader.payloadLength = 0;
 
-  if (message == ESP_OK) {
-    Serial.println("SYN queued for sending");
-  } else {
-    Serial.println("Send failed");
+    // serialize message
+    serializeHeader(synHeader, buffer);
+    // send message
+    esp_err_t message = esp_now_send(
+      controllerMac,
+      buffer,
+      HEADER_SIZE
+    );
+
+    if (message == ESP_OK) {
+      Serial.println("SYN queued for sending");
+    } else {
+      Serial.println("Send failed");
+    }
+
+    connectionState - SYN_SENT;
+    println("Sensor: SYN was sent");
   }
 
   delay(2000);
