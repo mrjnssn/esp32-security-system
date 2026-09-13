@@ -83,6 +83,25 @@ Example:
 | 6 | 1 byte | payloadLength | length of payload |
 | 7 | N bytes | payload | message-dependent data |
 
+**Sequence**
+
+The sequence field identifies a single protocol transaction. The node that initiates a transation selects the sequence number. All response messages that belong to this transaction MUST use the same sequence number. 
+
+Example:
+
+SYN     sequence = 42
+SYN_ACK sequence = 42
+ACK     sequence = 42
+
+A new transaction uses a new sequence number:
+
+FIN     sequence = 43
+FIN_ACK sequence = 43
+
+Retransmissions of the same transaction, e.g. after timeout, MUST reuse the originale sequence number. 
+
+The initial sequence number is 0. The sequence number is incremented when a node initiates a new transaction. After 65535, the sequence number wraps around to 0.
+
 #### 4.4  Node ID registry
 
 The 'source' and 'destination' header fields contain an unsigned 8-bit node ID. Each node in the network MUST have a unique node ID. 

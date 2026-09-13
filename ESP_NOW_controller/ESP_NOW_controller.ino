@@ -15,7 +15,7 @@ ConnectionState connectionState = DISCONNECTED;
 uint16_t currentSequence = 42;
 
 void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-  PacketHeader receivedHeader; 
+  PacketHeader receivedHeader;
 
   if (len < HEADER_SIZE) {
     return;
