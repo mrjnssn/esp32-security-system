@@ -34,6 +34,7 @@ void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int le
   switch (receivedHeader.type) {
     case MSG_SYN:
       if (connectionState != DISCONNECTED) {
+        Serial.println("Wrong state.");
         return;
       }
       
@@ -65,7 +66,6 @@ void handleSyn(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
   
   // add source as peer
   if (!esp_now_is_peer_exist(info->src_addr)) {
-
     esp_now_peer_info_t peerInfo = {}; // initialize peerInfo struct
 
     memcpy(peerInfo.peer_addr, info->src_addr, 6);
@@ -77,6 +77,8 @@ void handleSyn(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
         return;
       }
   }
+
+  Serial.println("Peer successfully added.");
 
   // update sequence
   currentSequence = receivedHeader.sequence;
@@ -98,15 +100,22 @@ void handleSyn(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
   serializeHeader(synAckHeader, responseBuffer);
 
   // send response
-  esp_now_send(
+  esp_err_t result = esp_now_send(
     info->src_addr,
     responseBuffer,
     HEADER_SIZE
   );
 
+  if (result == ESP_OK) {
+    Serial.println("SYN queued for sending");
+  } else {
+    Serial.println("Send failed");
+  }
+
+  Serial.println("SYN_ACK was sent.");
+
   // update state machine
   connectionState = SYN_RECEIVED;
-  println("Controller: SYN received.");
 }
 
 void handleAck(const esp_now_recv_info_t *info, const PacketHeader& receivedHeader) {
@@ -120,7 +129,7 @@ void handleAck(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
 
   // update state machine
   connectionState = CONNECTED;
-  println("Controller: connection established.");
+  Serial.println("Controller: connection established.");
 }
 
 void handleFin(const esp_now_recv_info_t *info, const PacketHeader& receivedHeader) {
@@ -156,13 +165,13 @@ void handleFin(const esp_now_recv_info_t *info, const PacketHeader& receivedHead
   // update state machine
   connectionState = DISCONNECTED;
 
-  println("Controller: disconnected.");
+  Serial.println("Controller: disconnected.");
 }
 
 void printConfirmation(const PacketHeader& receivedHeader) {
-  Serial.print("Valid SEC32 ");
+  Serial.print("Valid SEC32 type ");
   Serial.print(receivedHeader.type);
-  Serial.println(" received");
+  Serial.println(" message received");
   Serial.print("version: ");
   Serial.println(receivedHeader.version);
   Serial.print("source: ");
@@ -187,10 +196,9 @@ void setup() {
     return;
   }
 
-  esp_now_register_recv_cb(onDataReceived);
-
   Serial.println("Controller ready");
 
+  esp_now_register_recv_cb(onDataReceived);
 }
 
 void loop() {

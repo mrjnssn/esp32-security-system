@@ -52,7 +52,7 @@ void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int le
       // TODO: handleFinAck(info, receivedHeader);
 
       connectionState = DISCONNECTED;
-      println("Sensor: disconnected.");
+      Serial.println("Sensor: disconnected.");
 
       break;
   }
@@ -91,14 +91,14 @@ void handleSynAck(const esp_now_recv_info_t *info, const PacketHeader& receivedH
   );
 
   connectionState = CONNECTED;
-  println("Sensor: connection established.");
+  Serial.println("Sensor: connection established.");
 
 }
 
 void printConfirmation(const PacketHeader& receivedHeader) {
-  Serial.print("Valid SEC32 ");
+  Serial.print("Valid SEC32 type ");
   Serial.print(receivedHeader.type);
-  Serial.println(" received");
+  Serial.println(" message received");
   Serial.print("version: ");
   Serial.println(receivedHeader.version);
   Serial.print("source: ");
@@ -123,6 +123,9 @@ void setup() {
     return;
   }
 
+  // FOR DEBUGGING
+  delay(3000);
+
   esp_now_peer_info_t peerInfo = {};
 
   memcpy(peerInfo.peer_addr, controllerMac, 6);
@@ -134,15 +137,19 @@ void setup() {
     return;
   }
 
+  esp_now_register_recv_cb(onDataReceived);
+
   Serial.println("ESP-NOW ready");
 
-  esp_now_register_recv_cb(onDataReceived);
+  // FOR DEBUGGING
+  Serial.println("Starting handshake in 3 seconds...");
+  delay(3000);
 
 }
 
 void loop() {
 
-  if (connectionState == DISCONNECTIED) {
+  if (connectionState == DISCONNECTED) {
     // create MSG_SYN
     PacketHeader synHeader;
 
@@ -168,9 +175,15 @@ void loop() {
       Serial.println("Send failed");
     }
 
-    connectionState - SYN_SENT;
-    println("Sensor: SYN was sent");
+    connectionState = SYN_SENT;
+    Serial.println("Sensor: SYN was sent");
   }
 
-  delay(2000);
+  static ConnectionState lastState = DISCONNECTED;
+  if (connectionState != lastState) {
+    Serial.print("Sensor state changed to: ");
+    Serial.println(connectionState);
+    
+    lastState = connectionState;
+  }
 }
