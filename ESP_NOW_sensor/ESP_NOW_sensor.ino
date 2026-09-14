@@ -4,6 +4,12 @@
 
 #define WIFI_CHANNEL 6
 
+constexpr unsigned long RESPONSE_TIMEOUT_MS = 3000;
+constexpr uint8_t MAX_RETRIES = 3;
+
+unsigned long lastSendAt = 0;
+uint8_t retryCount = 0;
+
 uint8_t controllerMac[] = {0x5C, 0x01, 0x3B, 0xBF, 0x87, 0x78};
 
 enum ConnectionState {
@@ -11,11 +17,42 @@ enum ConnectionState {
   SYN_SENT,
   CONNECTED,
   FIN_SENT,
+  CONNECTION_FAILED
 };
 
 ConnectionState connectionState = DISCONNECTED;
 uint8_t buffer[HEADER_SIZE];
 uint16_t currentSequence = 42;
+
+
+bool sendSyn() {
+  // create MSG_SYN
+  PacketHeader synHeader;
+
+  synHeader.version = PROTOCOL_VERSION;
+  synHeader.source = NODE_SENSOR_1;
+  synHeader.destination = NODE_CONTROLLER;
+  synHeader.type = MSG_SYN;
+  synHeader.sequence = currentSequence;
+  synHeader.payloadLength = 0;
+
+  // serialize message
+  serializeHeader(synHeader, buffer);
+  // send message
+  esp_err_t message = esp_now_send(
+    controllerMac,
+    buffer,
+    HEADER_SIZE
+  );
+
+  if (result == ESP_OK) {
+    return true;
+  } else {
+    return false;
+  }
+
+}
+
 
 void onDataReceived(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
   PacketHeader receivedHeader; 
@@ -148,42 +185,41 @@ void setup() {
 }
 
 void loop() {
-
-  if (connectionState == DISCONNECTED) {
-    // create MSG_SYN
-    PacketHeader synHeader;
-
-    synHeader.version = PROTOCOL_VERSION;
-    synHeader.source = NODE_SENSOR_1;
-    synHeader.destination = NODE_CONTROLLER;
-    synHeader.type = MSG_SYN;
-    synHeader.sequence = currentSequence;
-    synHeader.payloadLength = 0;
-
-    // serialize message
-    serializeHeader(synHeader, buffer);
-    // send message
-    esp_err_t message = esp_now_send(
-      controllerMac,
-      buffer,
-      HEADER_SIZE
-    );
-
-    if (message == ESP_OK) {
-      Serial.println("SYN queued for sending");
-    } else {
-      Serial.println("Send failed");
-    }
-
-    connectionState = SYN_SENT;
-    Serial.println("Sensor: SYN was sent");
-  }
-
   static ConnectionState lastState = DISCONNECTED;
   if (connectionState != lastState) {
     Serial.print("Sensor state changed to: ");
     Serial.println(connectionState);
     
     lastState = connectionState;
+  }
+
+  switch (connectionState) {
+    case DISCONNECTED:
+      if (sendSyn()) {
+        Serial.println("SYN sent");
+        connectionState = SYN_SENT;
+        lastSendAt = millis();
+      }
+      retryCount = 0;
+      break;
+    case SYN_SENT:
+      if (millis() - lastSendAt >= RESPONSE_TIMEOUT_MS) {
+        if (retryCount < MAX_RETRIES) {
+          Serial.println("SYN wasn't sent. Retrying...")
+          sendSyn();
+          lastSendAt = millis();
+          retryCount++;
+          Serial.print(retryCount);
+          Serial.print("/");
+          Serial.println(MAX_RETRIES);
+        } else {
+          Serial.println("Handshake failed: maximum retries reached.")
+          connectionState = CONNECTION_FAILED;
+        }
+      }
+      break;
+    case FIN_SENT:
+      // TODO: create retry for FIN
+      break;
   }
 }
